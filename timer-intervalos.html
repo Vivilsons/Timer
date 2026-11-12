@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Timer">
+<meta name="theme-color" content="#EDF1F4" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0B1520" media="(prefers-color-scheme: dark)">
+<title>Timer de intervalos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #EDF1F4;
+    --surface: #FFFFFF;
+    --ink: #0F2233;
+    --ink-2: #55687A;
+    --line: #D3DCE3;
+    --prep: #E8A100;
+    --mark: #2F55F4;
+    --on-mark: #FFFFFF;
+    --alert: #D93A3F;
+    --track: #D9E1E8;
+    --font-ui: ui-rounded, "SF Pro Rounded", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    --font-num: "Barlow Condensed", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg: #0B1520;
+      --surface: #14212F;
+      --ink: #EAF1F7;
+      --ink-2: #8DA2B5;
+      --line: #243545;
+      --prep: #F5B52E;
+      --mark: #7C96FF;
+      --on-mark: #0B1520;
+      --alert: #FF6B6F;
+      --track: #1D2E3F;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #0B1520;
+    --surface: #14212F;
+    --ink: #EAF1F7;
+    --ink-2: #8DA2B5;
+    --line: #243545;
+    --prep: #F5B52E;
+    --mark: #7C96FF;
+    --on-mark: #0B1520;
+    --alert: #FF6B6F;
+    --track: #1D2E3F;
+  }
+  html { scroll-padding-top: env(safe-area-inset-top, 0px); -webkit-text-size-adjust: 100%; }
+  *, *::before, *::after { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-ui);
+    font-size: 16px;
+    line-height: 1.4;
+    min-height: 100vh;
+    -webkit-tap-highlight-color: transparent;
+  }
+  main { max-width: 520px; margin: 0 auto; padding: 20px 18px 28px; }
+  [hidden] { display: none !important; }
+  button, input { font: inherit; color: inherit; }
+  button { touch-action: manipulation; cursor: pointer; }
+  :focus-visible { outline: 3px solid var(--mark); outline-offset: 2px; }
+
+  h1 { font-size: 26px; line-height: 1.15; margin: 8px 0 4px; letter-spacing: -0.01em; }
+  .sub { margin: 0 0 20px; color: var(--ink-2); }
+
+  /* Configuração */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    padding: 4px 16px;
+  }
+  .field {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--line);
+    min-height: 64px;
+  }
+  .field:last-child { border-bottom: 0; }
+  .field label, .field .lbl { font-weight: 600; }
+  .field small { display: block; color: var(--ink-2); font-weight: 400; font-size: 13px; }
+  .num {
+    width: 64px; height: 48px; text-align: center; font-size: 20px; font-weight: 600;
+    background: var(--bg); border: 1px solid var(--line); border-radius: 12px;
+    font-variant-numeric: tabular-nums;
+  }
+  .pair { display: flex; align-items: center; gap: 6px; }
+  .pair span { color: var(--ink-2); }
+  .stepper { display: flex; align-items: center; gap: 4px; }
+  .stepper button {
+    width: 44px; height: 44px; border-radius: 12px; border: 1px solid var(--line);
+    background: var(--bg); font-size: 22px; line-height: 1;
+  }
+  .stepper output { min-width: 36px; text-align: center; font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+  .summary {
+    margin: 14px 2px 18px; padding: 12px 14px; border-radius: 14px;
+    background: color-mix(in srgb, var(--mark) 12%, transparent);
+    color: var(--ink);
+  }
+  .summary.bad { background: color-mix(in srgb, var(--alert) 14%, transparent); color: var(--alert); font-weight: 600; }
+
+  h2.sec { font-size: 18px; margin: 22px 2px 10px; }
+  .rows { display: grid; gap: 8px; }
+  .mrow {
+    display: grid; grid-template-columns: 14px 1fr auto; align-items: center; gap: 12px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 6px 14px 6px 14px;
+  }
+  .mrow .dot { width: 14px; height: 14px; border-radius: 5px; background: var(--mark); }
+  .mrow.prep .dot { background: var(--prep); }
+  .mrow input {
+    width: 100%; min-width: 0; height: 44px; background: transparent; border: 0; font-size: 17px; font-weight: 600;
+    padding: 0; border-radius: 8px;
+  }
+  .mrow input::placeholder { color: var(--ink-2); font-weight: 500; }
+  .mrow .dur { font-variant-numeric: tabular-nums; color: var(--ink-2); font-weight: 600; }
+
+  .opt { display: flex; align-items: center; gap: 12px; padding: 14px 0; border-bottom: 1px solid var(--line); min-height: 56px; }
+  .opt:last-child { border-bottom: 0; }
+  .opt input { width: 24px; height: 24px; accent-color: var(--mark); flex: none; }
+  .opt span small { display: block; color: var(--ink-2); font-size: 13px; }
+
+  .bar {
+    position: sticky; bottom: 0; margin: 18px -18px 0; padding: 14px 18px calc(14px + env(safe-area-inset-bottom, 0px));
+    background: linear-gradient(to top, var(--bg) 72%, transparent);
+  }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    height: 58px; padding: 0 22px; border-radius: 18px; border: 1px solid var(--line);
+    background: var(--surface); font-size: 18px; font-weight: 700; width: 100%;
+  }
+  .btn.primary { background: var(--mark); color: var(--on-mark); border-color: transparent; }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  .tip { color: var(--ink-2); font-size: 13px; margin: 14px 2px 0; }
+
+  /* Execução */
+  #run { --phase: var(--mark); min-height: calc(100vh - 56px); display: flex; flex-direction: column; }
+  #run[data-type="prep"] { --phase: var(--prep); }
+  .strip { display: flex; gap: 5px; height: 16px; margin-top: 4px; }
+  .strip .blk { position: relative; border-radius: 6px; background: var(--track); overflow: hidden; min-width: 6px; }
+  .strip .blk i { position: absolute; inset: 0 auto 0 0; width: 0; background: var(--mark); }
+  .strip .blk.prep i { background: var(--prep); }
+  .strip .blk.cur { box-shadow: 0 0 0 2px var(--ink); }
+  .phase { margin-top: 26px; text-align: center; }
+  .phase h2 {
+    margin: 0; font-size: 28px; line-height: 1.15; display: inline-flex; align-items: center; gap: 10px;
+    max-width: 100%; overflow-wrap: anywhere;
+  }
+  .phase h2::before { content: ""; width: 14px; height: 14px; border-radius: 5px; background: var(--phase); flex: none; }
+  .phase p { margin: 4px 0 0; color: var(--ink-2); }
+  .digits {
+    font-family: var(--font-num); font-weight: 700; text-align: center; line-height: 0.95;
+    font-size: min(52vw, 40vh, 300px); font-variant-numeric: tabular-nums; letter-spacing: -0.01em;
+    margin: 18px 0 6px; color: var(--ink);
+  }
+  .digits.alert { color: var(--alert); }
+  .overall { text-align: center; color: var(--ink-2); margin: 0 0 18px; font-variant-numeric: tabular-nums; }
+  .controls { display: grid; grid-template-columns: 1fr 2fr 1fr; gap: 10px; }
+  .controls .btn { font-size: 16px; padding: 0 8px; }
+  .controls .btn.primary { font-size: 20px; }
+  .controls2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+  .controls2 .btn { height: 48px; font-size: 16px; font-weight: 600; }
+  .steps { list-style: none; margin: 22px 0 0; padding: 0; display: grid; gap: 6px; }
+  .steps li {
+    display: grid; grid-template-columns: 14px 1fr auto; gap: 12px; align-items: center;
+    padding: 10px 14px; border-radius: 12px; border: 1px solid transparent;
+  }
+  .steps li .dot { width: 14px; height: 14px; border-radius: 5px; background: var(--mark); }
+  .steps li.prep .dot { background: var(--prep); }
+  .steps li .d { color: var(--ink-2); font-variant-numeric: tabular-nums; }
+  .steps li.done { opacity: 0.5; }
+  .steps li.cur { background: var(--surface); border-color: var(--line); font-weight: 700; }
+  .note { color: var(--ink-2); font-size: 13px; text-align: center; margin: auto 0 0; padding-top: 18px; }
+  @media (prefers-reduced-motion: no-preference) {
+    .strip .blk i { transition: width 0.12s linear; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <!-- Tela de configuração -->
+  <section id="setup">
+    <h1>Timer de intervalos</h1>
+    <p class="sub">Defina o tempo total, a preparação e quantos marcadores cabem dentro dele.</p>
+
+    <div class="card">
+      <div class="field">
+        <div class="lbl">Tempo total<small>Máximo de 60 minutos</small></div>
+        <div class="pair">
+          <input class="num" id="min" type="text" inputmode="numeric" pattern="[0-9]*" aria-label="Minutos" maxlength="2">
+          <span>min</span>
+          <input class="num" id="sec" type="text" inputmode="numeric" pattern="[0-9]*" aria-label="Segundos" maxlength="2">
+          <span>s</span>
+        </div>
+      </div>
+      <div class="field">
+        <div class="lbl">Preparação<small>Use 0 para não ter</small></div>
+        <div class="pair">
+          <input class="num" id="prep" type="text" inputmode="numeric" pattern="[0-9]*" aria-label="Segundos de preparação" maxlength="4">
+          <span>s</span>
+        </div>
+      </div>
+      <div class="field">
+        <div class="lbl">Marcadores<small>Dividem o tempo restante</small></div>
+        <div class="stepper">
+          <button type="button" id="countMinus" aria-label="Menos um marcador">−</button>
+          <output id="countOut">3</output>
+          <button type="button" id="countPlus" aria-label="Mais um marcador">+</button>
+        </div>
+      </div>
+      <div class="field">
+        <div class="lbl">Beeps antes da troca<small>Um beep por segundo</small></div>
+        <div class="stepper">
+          <button type="button" id="beepMinus" aria-label="Menos um beep">−</button>
+          <output id="beepOut">3</output>
+          <button type="button" id="beepPlus" aria-label="Mais um beep">+</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="summary" id="summary" role="status"></div>
+
+    <h2 class="sec">Nomes das etapas</h2>
+    <div class="rows" id="rows"></div>
+
+    <h2 class="sec">Opções</h2>
+    <div class="card">
+      <label class="opt">
+        <input type="checkbox" id="longEnd">
+        <span>Tom longo ao trocar de etapa<small>Soa no instante em que a etapa termina</small></span>
+      </label>
+      <label class="opt">
+        <input type="checkbox" id="wake">
+        <span>Manter a tela ligada enquanto o app estiver aberto<small>Você ainda pode bloquear a tela quando quiser</small></span>
+      </label>
+    </div>
+
+    <p class="tip">Para abrir como um app: no Safari, toque em Compartilhar e depois em Adicionar à Tela de Início.</p>
+
+    <div class="bar">
+      <button class="btn primary" id="start" type="button">Iniciar</button>
+    </div>
+  </section>
+
+  <!-- Tela de execução -->
+  <section id="run" hidden>
+    <div class="strip" id="strip" aria-hidden="true"></div>
+    <div class="phase">
+      <h2 id="phaseName">Preparação</h2>
+      <p id="phaseSub"></p>
+    </div>
+    <div class="digits" id="digits">0</div>
+    <p class="overall" id="overall"></p>
+
+    <div class="controls">
+      <button class="btn" id="prev" type="button">Anterior</button>
+      <button class="btn primary" id="toggle" type="button">Pausar</button>
+      <button class="btn" id="next" type="button">Próxima</button>
+    </div>
+    <div class="controls2">
+      <button class="btn" id="restart" type="button">Reiniciar</button>
+      <button class="btn" id="back" type="button">Editar</button>
+    </div>
+
+    <ol class="steps" id="steps"></ol>
+    <p class="note">Pode bloquear a tela: o som continua tocando e os beeps seguem no horário.</p>
+  </section>
+</main>
+
+<audio id="audio" playsinline preload="auto"></audio>
+
+<script>
+(function () {
+  'use strict';
+
+  var $ = function (s) { return document.querySelector(s); };
+  var STORE = 'timer-intervalos-v1';
+  var SR = 8000;                 // taxa de amostragem do áudio gerado
+  var MAX_TOTAL = 3600;          // 60 minutos
+  var DEF = { min: 1, sec: 15, prep: 15, count: 3, beeps: 3, longEnd: true, wake: true, prepName: '', names: [] };
+
+  /* ---------- Configuração (salva neste aparelho) ---------- */
+  function toInt(v) { v = parseInt(v, 10); return isNaN(v) ? 0 : v; }
+  function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+
+  function load() {
+    var c = JSON.parse(JSON.stringify(DEF));
+    try {
+      var raw = localStorage.getItem(STORE);
+      if (raw) {
+        var o = JSON.parse(raw);
+        for (var k in o) { if (Object.prototype.hasOwnProperty.call(c, k)) c[k] = o[k]; }
+      }
+    } catch (e) { /* storage indisponível: usa o padrão */ }
+    if (!Array.isArray(c.names)) c.names = [];
+    return c;
+  }
+  function save() { try { localStorage.setItem(STORE, JSON.stringify(cfg)); } catch (e) {} }
+
+  var cfg = load();
+  function normalize() {
+    var t = clamp(toInt(cfg.min) * 60 + toInt(cfg.sec), 0, MAX_TOTAL);
+    cfg.min = Math.floor(t / 60);
+    cfg.sec = t % 60;
+    cfg.prep = clamp(toInt(cfg.prep), 0, MAX_TOTAL);
+    cfg.count = clamp(toInt(cfg.count), 1, 30);
+    cfg.beeps = clamp(toInt(cfg.beeps), 0, 5);
+    cfg.longEnd = !!cfg.longEnd;
+    cfg.wake = !!cfg.wake;
+  }
+  normalize();
+
+  function fmt(s) {
+    s = Math.max(0, Math.round(s));
+    var m = Math.floor(s / 60), r = s % 60;
+    return m + ':' + (r < 10 ? '0' : '') + r;
+  }
+
+  /* ---------- Plano: divide o tempo em etapas ---------- */
+  function plan() {
+    var total = cfg.min * 60 + cfg.sec, prep = cfg.prep, n = cfg.count;
+    if (total <= 0) return { ok: false, msg: 'Defina um tempo total maior que zero.' };
+    if (total > MAX_TOTAL) return { ok: false, msg: 'O tempo total pode ter no máximo 60 minutos.' };
+    if (prep >= total) return { ok: false, msg: 'A preparação precisa ser menor que o tempo total.' };
+    var avail = total - prep;
+    if (avail < n) return { ok: false, msg: 'Não cabem ' + n + ' marcadores em ' + avail + ' s. Reduza a quantidade ou aumente o tempo.' };
+    var base = Math.floor(avail / n), rem = avail % n, segs = [], i;
+    if (prep > 0) segs.push({ name: (cfg.prepName || '').trim() || 'Preparação', dur: prep, type: 'prep' });
+    for (i = 0; i < n; i++) {
+      segs.push({
+        name: ((cfg.names[i] || '') + '').trim() || ('Marcador ' + (i + 1)),
+        dur: base + (i < rem ? 1 : 0), type: 'mark', idx: i
+      });
+    }
+    return { ok: true, total: total, segs: segs, base: base, rem: rem, avail: avail };
+  }
+
+  /* ---------- Tela de configuração ---------- */
+  function renderSummary() {
+    var p = plan(), el = $('#summary');
+    el.classList.toggle('bad', !p.ok);
+    $('#start').disabled = !p.ok;
+    if (!p.ok) { el.textContent = p.msg; return; }
+    var n = cfg.count;
+    var markers = p.rem === 0
+      ? n + (n === 1 ? ' marcador' : ' marcadores') + ' de ' + p.base + ' s'
+      : n + ' marcadores de ' + p.base + ' a ' + (p.base + 1) + ' s';
+    el.textContent = fmt(p.total) + ' no total: ' + (cfg.prep > 0 ? cfg.prep + ' s de preparação e ' : '') + markers + '.';
+  }
+
+  function renderRows() {
+    var p = plan(), box = $('#rows'), i;
+    box.innerHTML = '';
+    function row(type, placeholder, value, dur, onInput, label) {
+      var d = document.createElement('div');
+      d.className = 'mrow ' + type;
+      var dot = document.createElement('span'); dot.className = 'dot';
+      var inp = document.createElement('input');
+      inp.type = 'text'; inp.maxLength = 24; inp.placeholder = placeholder; inp.value = value;
+      inp.setAttribute('aria-label', label);
+      inp.autocomplete = 'off';
+      inp.addEventListener('input', function () { onInput(inp.value); save(); });
+      var du = document.createElement('span'); du.className = 'dur'; du.textContent = dur;
+      d.appendChild(dot); d.appendChild(inp); d.appendChild(du);
+      box.appendChild(d);
+    }
+    var offset = 0;
+    if (cfg.prep > 0) {
+      offset = 1;
+      row('prep', 'Preparação', cfg.prepName || '', p.ok ? cfg.prep + ' s' : '–',
+        function (v) { cfg.prepName = v; }, 'Nome da preparação');
+    }
+    for (i = 0; i < cfg.count; i++) {
+      (function (k) {
+        row('mark', 'Marcador ' + (k + 1), cfg.names[k] || '',
+          p.ok ? p.segs[offset + k].dur + ' s' : '–',
+          function (v) { cfg.names[k] = v; }, 'Nome do marcador ' + (k + 1));
+      })(i);
+    }
+  }
+
+  function syncFields() {
+    $('#min').value = cfg.min;
+    $('#sec').value = cfg.sec;
+    $('#prep').value = cfg.prep;
+    $('#countOut').textContent = cfg.count;
+    $('#beepOut').textContent = cfg.beeps;
+    $('#longEnd').checked = cfg.longEnd;
+    $('#wake').checked = cfg.wake;
+  }
+  function refresh() { renderSummary(); renderRows(); }
+
+  function bindNumber(id, key) {
+    var el = $(id);
+    el.addEventListener('input', function () {
+      el.value = el.value.replace(/[^0-9]/g, '');
+      cfg[key] = toInt(el.value);
+      renderSummary();
+    });
+    el.addEventListener('change', function () {
+      cfg[key] = toInt(el.value);
+      normalize(); syncFields(); save(); refresh();
+    });
+    el.addEventListener('focus', function () { try { el.select(); } catch (e) {} });
+  }
+  bindNumber('#min', 'min');
+  bindNumber('#sec', 'sec');
+  bindNumber('#prep', 'prep');
+
+  function bump(key, d) { cfg[key] = cfg[key] + d; normalize(); syncFields(); save(); refresh(); }
+  $('#countMinus').addEventListener('click', function () { bump('count', -1); });
+  $('#countPlus').addEventListener('click', function () { bump('count', 1); });
+  $('#beepMinus').addEventListener('click', function () { bump('beeps', -1); });
+  $('#beepPlus').addEventListener('click', function () { bump('beeps', 1); });
+  $('#longEnd').addEventListener('change', function (e) { cfg.longEnd = e.target.checked; save(); });
+  $('#wake').addEventListener('change', function (e) { cfg.wake = e.target.checked; save(); });
+
+  /* ---------- Áudio: gera um arquivo WAV com todos os beeps nos horários exatos ---------- */
+  function buildWav(segs, total) {
+    var tail = 1.8;
+    var N = Math.ceil((total + tail) * SR);
+    var pcm = new Int16Array(N);
+
+    function tone(t0, dur, freq, amp) {
+      var s0 = Math.floor(t0 * SR), n = Math.floor(dur * SR), fade = Math.floor(0.008 * SR), i, env, v;
+      for (i = 0; i < n && s0 + i < N; i++) {
+        env = 1;
+        if (i < fade) env = i / fade; else if (i > n - fade) env = (n - i) / fade;
+        v = Math.sin(2 * Math.PI * freq * i / SR) * amp * env * 32767;
+        pcm[s0 + i] = clamp(Math.round(pcm[s0 + i] + v), -32767, 32767);
+      }
+    }
+
+    var t = 0;
+    segs.forEach(function (sg, i) {
+      var e = t + sg.dur, last = (i === segs.length - 1), k, bt;
+      for (k = cfg.beeps; k >= 1; k--) {
+        bt = e - k;
+        if (bt >= t + 1) tone(bt, 0.16, 880, 0.75);
+      }
+      if (last) {
+        tone(e, 0.55, 1320, 0.85);
+        tone(e + 0.7, 0.9, 1760, 0.85);
+      } else if (cfg.longEnd) {
+        tone(e, 0.6, 1320, 0.85);
+      }
+      t = e;
+    });
+
+    var dataLen = pcm.length * 2, buf = new ArrayBuffer(44), v = new DataView(buf);
+    function w(o, s) { for (var j = 0; j < s.length; j++) v.setUint8(o + j, s.charCodeAt(j)); }
+    w(0, 'RIFF'); v.setUint32(4, 36 + dataLen, true); w(8, 'WAVE'); w(12, 'fmt ');
+    v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+    v.setUint32(24, SR, true); v.setUint32(28, SR * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+    w(36, 'data'); v.setUint32(40, dataLen, true);
+    return new Blob([buf, pcm], { type: 'audio/wav' });
+  }
+
+  /* ---------- Execução ---------- */
+  var audio = $('#audio');
+  var url = null, segs = [], starts = [], total = 0;
+  var state = 'idle';            // idle | running | paused | done
+  var lastIdx = -1, fills = [], blocks = [], stepEls = [];
+  var wl = null;
+
+  function idxAt(t) {
+    var i;
+    for (i = 0; i < segs.length; i++) { if (t < starts[i] + segs[i].dur) return i; }
+    return segs.length - 1;
+  }
+
+  function showSetup() { $('#run').hidden = true; $('#setup').hidden = false; window.scrollTo(0, 0); }
+  function showRun() { $('#setup').hidden = true; $('#run').hidden = false; window.scrollTo(0, 0); }
+
+  function buildRunUI() {
+    var strip = $('#strip'), list = $('#steps');
+    strip.innerHTML = ''; list.innerHTML = '';
+    fills = []; blocks = []; stepEls = []; starts = [];
+    var acc = 0;
+    segs.forEach(function (sg) {
+      starts.push(acc); acc += sg.dur;
+      var b = document.createElement('div');
+      b.className = 'blk ' + sg.type; b.style.flex = sg.dur + ' 1 0';
+      var f = document.createElement('i'); b.appendChild(f);
+      strip.appendChild(b); blocks.push(b); fills.push(f);
+
+      var li = document.createElement('li'); li.className = sg.type;
+      var dot = document.createElement('span'); dot.className = 'dot';
+      var nm = document.createElement('span'); nm.textContent = sg.name;
+      var du = document.createElement('span'); du.className = 'd'; du.textContent = sg.dur + ' s';
+      li.appendChild(dot); li.appendChild(nm); li.appendChild(du);
+      list.appendChild(li); stepEls.push(li);
+    });
+    lastIdx = -1;
+  }
+
+  function setState(s) {
+    state = s;
+    var tg = $('#toggle');
+    tg.textContent = s === 'running' ? 'Pausar' : (s === 'done' ? 'Repetir' : 'Continuar');
+    wake(s === 'running');
+    if ('mediaSession' in navigator) {
+      try { navigator.mediaSession.playbackState = s === 'running' ? 'playing' : (s === 'idle' ? 'none' : 'paused'); } catch (e) {}
+    }
+  }
+
+  function setMeta(i) {
+    if (!('mediaSession' in navigator) || typeof MediaMetadata === 'undefined') return;
+    try {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: segs[i].name,
+        artist: 'Timer de intervalos',
+        album: fmt(total) + ' no total'
+      });
+    } catch (e) {}
+  }
+
+  function tick() {
+    if (state === 'idle' || !segs.length) return;
+    var t = Math.min(audio.currentTime || 0, total);
+
+    if (state === 'running' && (audio.currentTime || 0) >= total - 0.001) { finish(); return; }
+    if (state === 'done') { renderDone(); return; }
+
+    var i = idxAt(t), sg = segs[i], st = starts[i];
+    var rem = Math.max(0, st + sg.dur - t);
+    var shown = Math.ceil(rem - 0.001);
+
+    if (i !== lastIdx) {
+      lastIdx = i;
+      $('#run').setAttribute('data-type', sg.type);
+      $('#phaseName').textContent = sg.name;
+      $('#phaseSub').textContent = sg.type === 'prep' ? 'Prepare-se' : 'Marcador ' + (sg.idx + 1) + ' de ' + cfg.count;
+      stepEls.forEach(function (li, k) {
+        li.classList.toggle('cur', k === i);
+        li.classList.toggle('done', k < i);
+        blocks[k].classList.toggle('cur', k === i);
+      });
+      setMeta(i);
+    }
+
+    var dg = $('#digits');
+    dg.textContent = shown >= 60 ? fmt(shown) : String(shown);
+    dg.classList.toggle('alert', cfg.beeps > 0 && shown > 0 && shown <= cfg.beeps);
+    $('#overall').textContent = 'Restam ' + fmt(Math.ceil(total - t - 0.001)) + ' no total';
+
+    fills.forEach(function (f, k) {
+      var pct = clamp((t - starts[k]) / segs[k].dur, 0, 1) * 100;
+      f.style.width = pct + '%';
+    });
+  }
+
+  function renderDone() {
+    $('#digits').textContent = '0';
+    $('#digits').classList.remove('alert');
+    $('#phaseName').textContent = 'Concluído';
+    $('#phaseSub').textContent = 'Tempo total de ' + fmt(total);
+    $('#overall').textContent = 'Tudo certo';
+    fills.forEach(function (f) { f.style.width = '100%'; });
+    stepEls.forEach(function (li) { li.classList.remove('cur'); li.classList.add('done'); });
+    blocks.forEach(function (b) { b.classList.remove('cur'); });
+    lastIdx = -1;
+  }
+
+  function finish() {
+    if (state === 'done') return;
+    setState('done');
+    renderDone();
+  }
+
+  function play() {
+    var pr = audio.play();
+    if (pr && pr.catch) {
+      pr.catch(function () {
+        setState('paused');
+        $('#phaseSub').textContent = 'Toque em Continuar para liberar o áudio';
+      });
+    }
+  }
+
+  function start() {
+    var p = plan();
+    if (!p.ok) return;
+    normalize(); save();
+    segs = p.segs; total = p.total;
+    if (url) { URL.revokeObjectURL(url); url = null; }
+    url = URL.createObjectURL(buildWav(segs, total));
+    audio.src = url;
+    try { audio.currentTime = 0; } catch (e) {}
+    buildRunUI();
+    showRun();
+    setState('running');
+    play();
+    tick();
+  }
+
+  function restart() {
+    audio.pause();
+    try { audio.currentTime = 0; } catch (e) {}
+    lastIdx = -1;
+    setState('running');
+    play();
+    tick();
+  }
+
+  function jump(d) {
+    if (state === 'idle') return;
+    var t = audio.currentTime || 0, i = idxAt(Math.min(t, total - 0.01)), target;
+    if (d < 0) {
+      target = (t - starts[i] > 2) ? starts[i] : starts[Math.max(0, i - 1)];
+    } else {
+      if (i >= segs.length - 1) return;
+      target = starts[i + 1];
+    }
+    try { audio.currentTime = target; } catch (e) {}
+    if (state === 'done') { setState('running'); play(); }
+    tick();
+  }
+
+  $('#start').addEventListener('click', start);
+  $('#toggle').addEventListener('click', function () {
+    if (state === 'running') { audio.pause(); setState('paused'); }
+    else if (state === 'paused') { setState('running'); play(); }
+    else if (state === 'done') { restart(); }
+  });
+  $('#restart').addEventListener('click', restart);
+  $('#prev').addEventListener('click', function () { jump(-1); });
+  $('#next').addEventListener('click', function () { jump(1); });
+  $('#back').addEventListener('click', function () {
+    audio.pause();
+    setState('idle');
+    showSetup();
+  });
+
+  // Pausas e retomadas vindas de fora (tela de bloqueio, ligação, fones)
+  audio.addEventListener('pause', function () {
+    if (state === 'running' && !audio.ended && (audio.currentTime || 0) < total - 0.05) setState('paused');
+  });
+  audio.addEventListener('play', function () { if (state === 'paused') setState('running'); });
+  audio.addEventListener('ended', function () { if (state === 'running' || state === 'paused') finish(); });
+
+  // Controles da tela de bloqueio
+  if ('mediaSession' in navigator) {
+    var handlers = {
+      play: function () { if (state === 'paused') { setState('running'); play(); } },
+      pause: function () { if (state === 'running') { audio.pause(); setState('paused'); } },
+      previoustrack: function () { jump(-1); },
+      nexttrack: function () { jump(1); }
+    };
+    Object.keys(handlers).forEach(function (a) {
+      try { navigator.mediaSession.setActionHandler(a, handlers[a]); } catch (e) {}
+    });
+  }
+
+  // Mantém a tela ligada (opcional) enquanto o timer roda e o app está visível
+  function wake(on) {
+    try {
+      if (on && cfg.wake && 'wakeLock' in navigator && document.visibilityState === 'visible') {
+        if (!wl) {
+          navigator.wakeLock.request('screen').then(function (lock) {
+            wl = lock;
+            wl.addEventListener('release', function () { wl = null; });
+          }).catch(function () { wl = null; });
+        }
+      } else if (wl) {
+        wl.release().catch(function () {});
+        wl = null;
+      }
+    } catch (e) { wl = null; }
+  }
+
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible') { tick(); if (state === 'running') wake(true); }
+  });
+
+  setInterval(tick, 50);
+
+  syncFields();
+  refresh();
+})();
+</script>
+</body>
+</html>
